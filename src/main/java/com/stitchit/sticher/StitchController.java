@@ -1,5 +1,6 @@
 package com.stitchit.sticher;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -12,8 +13,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxEntry;
@@ -43,8 +47,7 @@ public class StitchController {
 
         String result;
 
-        final DbxRequestConfig config = new DbxRequestConfig("tz764utcclnkf06", Locale.getDefault().toString());
-        final DbxClient client = new DbxClient(config, oauth);
+        final DbxClient client = setupDbxClient(oauth);
         try {
             checkStitchedDirerctory();
 
@@ -84,5 +87,45 @@ public class StitchController {
             LOG.error(e.getMessage(), e);
         }
         return result;
+    }
+
+    private DbxClient setupDbxClient(final String oauth) {
+        final DbxRequestConfig config = new DbxRequestConfig("tz764utcclnkf06", Locale.getDefault().toString());
+        final DbxClient client = new DbxClient(config, oauth);
+        return client;
+    }
+
+    @RequestMapping(value = "/submit", method = RequestMethod.POST)
+    public @ResponseBody String submit(@RequestParam("oauth") final String oauth, @RequestParam("folder") final String folder,
+            @RequestParam("fileName") final String fileName, @RequestParam("file") final MultipartFile file) {
+        LOG.info("Received submit request {}/{}", oauth, folder);
+        if (!file.isEmpty()) {
+            try {
+
+                final DbxClient client = setupDbxClient(oauth);
+
+                final byte[] bytes = file.getBytes();
+                final BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(new File(fileName)));
+                stream.write(bytes);
+                stream.close();
+
+                final File inputFile = new File(fileName);
+                final FileInputStream inputStream = new FileInputStream(inputFile);
+                try {
+                    final DbxEntry.File uploadedFile = client.uploadFile("/" + folder + "/" + fileName, DbxWriteMode.force(), inputFile.length(), inputStream);
+                    final String shareableUrl = client.createShareableUrl(uploadedFile.path);
+                    System.out.println("Uploaded: " + shareableUrl);
+                } finally {
+                    inputStream.close();
+                    inputFile.delete();
+                }
+
+                return "You successfully uploaded " + fileName + "!";
+            } catch (final Exception e) {
+                return "You failed to upload " + fileName + " => " + e.getMessage();
+            }
+        } else {
+            return "You failed to upload " + fileName + " because the file was empty.";
+        }
     }
 }
