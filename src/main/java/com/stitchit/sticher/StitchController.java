@@ -48,7 +48,7 @@ public class StitchController {
                 outputStream.close();
             }
 
-            final String outputName = request.getFolder() + "pdf";
+            final String outputName = request.getFolder() + ".pdf";
 
             final FileOutputStream mergedOutputStream = new FileOutputStream(outputName);
             merger.setDestinationStream(mergedOutputStream);
