@@ -10,9 +10,8 @@ import java.util.Locale;
 import org.apache.pdfbox.util.PDFMergerUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,29 +25,29 @@ public class StitchController {
     private static final String template = "Stitched for %s!";
     Logger LOG = LoggerFactory.getLogger(StitchController.class);
 
-    @RequestMapping(value = "/stitch", method = RequestMethod.POST)
-    public @ResponseBody String save(@RequestBody final StitchRequest request) {
-        LOG.info("Received stitching request {}", request);
+    @RequestMapping(value = "/stitch/{oauth}/{folder}")
+    public @ResponseBody String save(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder) {
+        LOG.info("Received stitching request {}/{}", oauth, folder);
 
         String result;
 
         final DbxRequestConfig config = new DbxRequestConfig("tz764utcclnkf06", Locale.getDefault().toString());
-        final DbxClient client = new DbxClient(config, request.getOauth());
+        final DbxClient client = new DbxClient(config, oauth);
         try {
             LOG.info("Linked account: " + client.getAccountInfo().displayName);
-            final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + request.getFolder());
+            final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + folder);
             System.out.println("Files in the root path:");
             final PDFMergerUtility merger = new PDFMergerUtility();
             for (final DbxEntry child : listing.children) {
                 System.out.println("    " + child.name + ": " + child.toString());
                 final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                final DbxEntry.File downloadedFile = client.getFile("/" + request.getFolder() + "/" + child.asFile().name, null, outputStream);
+                final DbxEntry.File downloadedFile = client.getFile("/" + folder + "/" + child.asFile().name, null, outputStream);
                 System.out.println("Metadata: " + downloadedFile.toString());
                 merger.addSource(new ByteArrayInputStream(outputStream.toByteArray()));
                 outputStream.close();
             }
 
-            final String outputName = request.getFolder() + ".pdf";
+            final String outputName = folder + ".pdf";
 
             final FileOutputStream mergedOutputStream = new FileOutputStream(outputName);
             merger.setDestinationStream(mergedOutputStream);
