@@ -41,9 +41,10 @@ public class StitchController {
         }
     }
 
-    @RequestMapping(value = "/stitch/{oauth}/{folder}")
-    public @ResponseBody String save(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder) {
-        LOG.info("Received stitching request {}/{}", oauth, folder);
+    @RequestMapping(value = "/stitch/{oauth}/{folder}/{order}")
+    public @ResponseBody String save(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder,
+            @PathVariable("order") final String order) {
+        LOG.info("Received stitching request {}/{}/{}", oauth, folder, order);
 
         String result;
 
@@ -53,15 +54,21 @@ public class StitchController {
 
             LOG.info("Linked account: " + client.getAccountInfo().displayName);
             final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + folder);
-            System.out.println("Files in the root path:");
             final PDFMergerUtility merger = new PDFMergerUtility();
-            for (final DbxEntry child : listing.children) {
-                System.out.println("    " + child.name + ": " + child.toString());
-                final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                final DbxEntry.File downloadedFile = client.getFile("/" + folder + "/" + child.asFile().name, null, outputStream);
-                System.out.println("Metadata: " + downloadedFile.toString());
-                merger.addSource(new ByteArrayInputStream(outputStream.toByteArray()));
-                outputStream.close();
+
+            for (final String fileName : order.split(",")) {
+                System.out.println("Files:" + fileName);
+                for (final DbxEntry child : listing.children) {
+                    if (fileName.equals(child.name)) {
+                        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                        final DbxEntry.File downloadedFile = client.getFile("/" + folder + "/" + child.asFile().name, null, outputStream);
+                        System.out.println(child.name + ": " + child.toString());
+                        System.out.println("   Metadata: " + downloadedFile.toString());
+                        merger.addSource(new ByteArrayInputStream(outputStream.toByteArray()));
+                        outputStream.close();
+                        break;
+                    }
+                }
             }
 
             final String outputName = STITCHED_DIRECTORY + folder + ".pdf";
