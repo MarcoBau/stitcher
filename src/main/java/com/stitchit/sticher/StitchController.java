@@ -70,10 +70,10 @@ public class StitchController {
             final File inputFile = new File(outputName);
             final FileInputStream inputStream = new FileInputStream(inputFile);
             try {
-                final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.add(), inputFile.length(), inputStream);
-                client.createShareableUrl(uploadedFile.path);
-                System.out.println("Uploaded: " + client.createShareableUrl(uploadedFile.path));
-                result = client.createShareableUrl(uploadedFile.path);// String.format(template, client.getAccountInfo().displayName);
+                final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.force(), inputFile.length(), inputStream);
+                final String shareableUrl = client.createShareableUrl(uploadedFile.path);
+                System.out.println("Uploaded: " + shareableUrl);
+                result = shareableUrl;
             } finally {
                 inputStream.close();
                 inputFile.delete();
