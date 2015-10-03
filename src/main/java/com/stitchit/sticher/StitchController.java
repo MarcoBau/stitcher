@@ -22,8 +22,20 @@ import com.dropbox.core.DbxWriteMode;
 
 @RestController
 public class StitchController {
-    private static final String template = "Stitched for %s!";
+    private static final String STITCHED_DIRECTORY = "_stitched/";
     Logger LOG = LoggerFactory.getLogger(StitchController.class);
+
+    private void checkStitchedDirerctory() {
+        final File theDir = new File(STITCHED_DIRECTORY);
+        // if the directory does not exist, create it
+        if (!theDir.exists()) {
+            try {
+                theDir.mkdir();
+            } catch (final SecurityException se) {
+                // handle it
+            }
+        }
+    }
 
     @RequestMapping(value = "/stitch/{oauth}/{folder}")
     public @ResponseBody String save(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder) {
@@ -34,6 +46,8 @@ public class StitchController {
         final DbxRequestConfig config = new DbxRequestConfig("tz764utcclnkf06", Locale.getDefault().toString());
         final DbxClient client = new DbxClient(config, oauth);
         try {
+            checkStitchedDirerctory();
+
             LOG.info("Linked account: " + client.getAccountInfo().displayName);
             final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + folder);
             System.out.println("Files in the root path:");
@@ -47,7 +61,7 @@ public class StitchController {
                 outputStream.close();
             }
 
-            final String outputName = folder + ".pdf";
+            final String outputName = STITCHED_DIRECTORY + folder + ".pdf";
 
             final FileOutputStream mergedOutputStream = new FileOutputStream(outputName);
             merger.setDestinationStream(mergedOutputStream);
@@ -57,13 +71,14 @@ public class StitchController {
             final FileInputStream inputStream = new FileInputStream(inputFile);
             try {
                 final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.add(), inputFile.length(), inputStream);
-                System.out.println("Uploaded: " + uploadedFile.toString());
+                client.createShareableUrl(uploadedFile.path);
+                System.out.println("Uploaded: " + client.createShareableUrl(uploadedFile.path));
+                result = client.createShareableUrl(uploadedFile.path);// String.format(template, client.getAccountInfo().displayName);
             } finally {
                 inputStream.close();
                 inputFile.delete();
             }
 
-            result = String.format(template, client.getAccountInfo().displayName);
         } catch (final Exception e) {
             result = "Something went wrong";
             LOG.error(e.getMessage(), e);
