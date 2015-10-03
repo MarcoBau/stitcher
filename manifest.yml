@@ -1,0 +1,4 @@
+---
+applications:
+- name: stitcher
+  path: target/stitcher-0.0.1-SNAPSHOT.jar
