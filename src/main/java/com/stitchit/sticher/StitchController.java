@@ -61,19 +61,9 @@ public class StitchController {
                 System.out.println("Uploaded: " + uploadedFile.toString());
             } finally {
                 inputStream.close();
+                inputFile.delete();
             }
-            // final DbxEntry.File downloadedFile = client.getFile("/magnum-opus.txt", null, outputStream);
-            // System.out.println("Metadata: " + downloadedFile.toString());
-            //
-            // final File inputFile = new File(outputName, outputName, false, 0, outputName, null, null, outputName);
-            // final FileInputStream inputStream = new FileInputStream(inputFile);
-            // try {
-            // final DbxEntry.File uploadedFile = client.uploadFile("/magnum-opus.txt", DbxWriteMode.add(), inputFile.length(), inputStream);
-            // System.out.println("Uploaded: " + uploadedFile.toString());
-            // } finally {
-            // outputStream.close();
-            // // inputStream.close();
-            // }
+
             result = String.format(template, client.getAccountInfo().displayName);
         } catch (final Exception e) {
             result = "Something went wrong";
