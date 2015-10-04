@@ -173,13 +173,12 @@ public class StitchController {
         return client;
     }
 
-    @RequestMapping(value = "/submit", method = RequestMethod.POST)
-    public @ResponseBody String submit(@RequestParam("oauth") final String oauth, @RequestParam("folder") final String folder,
-            @RequestParam("fileName") final String fileName, @RequestParam("file") final MultipartFile file) {
-        LOG.info("Received submit request {}/{}", oauth, folder);
+    @RequestMapping(value = "/submit/{oauth}/{folder}/{fileName}", method = RequestMethod.POST)
+    public @ResponseBody String submit(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder,
+            @PathVariable("fileName") final String fileName, @RequestParam("file") final MultipartFile file) {
+        LOG.info("Received submit request {}/{}/{}", oauth, folder, fileName);
         if (!file.isEmpty()) {
             try {
-
                 final DbxClient client = setupDbxClient(oauth);
 
                 final byte[] bytes = file.getBytes();
