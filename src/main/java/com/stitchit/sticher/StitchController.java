@@ -48,9 +48,40 @@ public class StitchController {
         }
     }
 
+    @RequestMapping(value = "/stitch/{oauth}/{folder}/{order}")
+    public @ResponseBody String mergeDocuments(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder,
+            @PathVariable("order") final String order) {
+        LOG.info("Received stitching request {}/{}/{}", oauth, folder, order);
+
+        String result = null;
+
+        final DbxClient client = setupDbxClient(oauth);
+        try {
+            checkStitchedDirerctory();
+
+            LOG.info("Linked account: " + client.getAccountInfo().displayName);
+            final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + folder);
+            final String[] fileOrder = order.split(",");
+
+            result = mergePdf(folder, client, listing, fileOrder);
+            // FIXME the current pptx merge implementation is not working correctly
+            // result = mergePptx(folder, client, listing, fileOrder);
+
+        } catch (
+
+        final Exception e)
+
+        {
+            result = "Something went wrong";
+            LOG.error(e.getMessage(), e);
+        }
+        return result;
+
+    }
+
     private String mergePdf(final String folder, final DbxClient client, final DbxEntry.WithChildren listing, final String[] fileOrder)
             throws DbxException, IOException, FileNotFoundException, COSVisitorException {
-        String result;
+        String result = "";
         final PDFMergerUtility merger = new PDFMergerUtility();
 
         for (final String fileName : fileOrder) {
@@ -68,7 +99,6 @@ public class StitchController {
                 }
             }
         }
-
         final String outputName = STITCHED_DIRECTORY + folder + ".pdf";
 
         final FileOutputStream mergedOutputStream = new FileOutputStream(outputName);
@@ -78,10 +108,12 @@ public class StitchController {
         final File inputFile = new File(outputName);
         final FileInputStream inputStream = new FileInputStream(inputFile);
         try {
-            final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.force(), inputFile.length(), inputStream);
-            final String shareableUrl = client.createShareableUrl(uploadedFile.path);
-            System.out.println("Uploaded: " + shareableUrl);
-            result = shareableUrl;
+            if (inputFile.length() > 0) {
+                final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.force(), inputFile.length(), inputStream);
+                final String shareableUrl = client.createShareableUrl(uploadedFile.path);
+                System.out.println("Uploaded: " + shareableUrl);
+                result = shareableUrl;
+            }
         } finally {
             inputStream.close();
             inputFile.delete();
@@ -91,7 +123,7 @@ public class StitchController {
 
     private String mergePptx(final String folder, final DbxClient client, final WithChildren listing, final String[] fileOrder)
             throws DbxException, IOException, COSVisitorException {
-        String result;
+        String result = "";
         final XMLSlideShow pptx = new XMLSlideShow();
 
         for (final String fileName : fileOrder) {
@@ -99,16 +131,19 @@ public class StitchController {
             for (final DbxEntry child : listing.children) {
                 if (fileName.equals(child.name) && child.name.endsWith(".pptx")) {
                     final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                    final DbxEntry.File downloadedFile = client.getFile("/" + folder + "/" + child.asFile().name, null, outputStream);
+                    // final DbxEntry.File downloadedFile = client.getFile("/" + folder + "/" + child.asFile().name, null, outputStream);
                     System.out.println(child.name + ": " + child.toString());
-                    System.out.println("   Metadata: " + downloadedFile.toString());
 
                     final XMLSlideShow srcPptx = new XMLSlideShow(new ByteArrayInputStream(outputStream.toByteArray()));
 
                     for (final XSLFSlide srcSlide : srcPptx.getSlides()) {
 
                         // merging the contents
-                        pptx.createSlide().importContent(srcSlide);
+                        try {
+                            pptx.createSlide().importContent(srcSlide);
+                        } catch (final NullPointerException | IllegalArgumentException e) {
+                            LOG.warn("Something is not ok with de pptx ", e.getMessage());
+                        }
                     }
                     srcPptx.close();
                     outputStream.close();
@@ -125,10 +160,12 @@ public class StitchController {
         final File inputFile = new File(outputName);
         final FileInputStream inputStream = new FileInputStream(inputFile);
         try {
-            final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.force(), inputFile.length(), inputStream);
-            final String shareableUrl = client.createShareableUrl(uploadedFile.path);
-            System.out.println("Uploaded: " + shareableUrl);
-            result = shareableUrl;
+            if (inputFile.length() > 24234) {// empty pptx
+                final DbxEntry.File uploadedFile = client.uploadFile("/" + outputName, DbxWriteMode.force(), inputFile.length(), inputStream);
+                final String shareableUrl = client.createShareableUrl(uploadedFile.path);
+                System.out.println("Uploaded: " + shareableUrl);
+                result = shareableUrl;
+            }
         } finally {
             pptx.close();
             inputStream.close();
@@ -137,34 +174,9 @@ public class StitchController {
         return result;
     }
 
-    @RequestMapping(value = "/stitch/{oauth}/{folder}/{order}")
-    public @ResponseBody String save(@PathVariable("oauth") final String oauth, @PathVariable("folder") final String folder,
-            @PathVariable("order") final String order) {
-        LOG.info("Received stitching request {}/{}/{}", oauth, folder, order);
-
-        String result = null;
-
-        final DbxClient client = setupDbxClient(oauth);
-        try {
-            checkStitchedDirerctory();
-
-            LOG.info("Linked account: " + client.getAccountInfo().displayName);
-            final DbxEntry.WithChildren listing = client.getMetadataWithChildren("/" + folder);
-            final String[] fileOrder = order.split(",");
-
-            result = mergePdf(folder, client, listing, fileOrder);
-            result = mergePptx(folder, client, listing, fileOrder);
-
-        } catch (
-
-        final Exception e)
-
-        {
-            result = "Something went wrong";
-            LOG.error(e.getMessage(), e);
-        }
-        return result;
-
+    @RequestMapping(value = "/")
+    public @ResponseBody String root() {
+        return "<h1>Nothing to see. This is just a cloud sewing machine!</h1>";
     }
 
     private DbxClient setupDbxClient(final String oauth) {
